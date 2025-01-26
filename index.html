@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html>
-
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Hexagon Map Game</title>
   <style>
-    /* Add these to your existing CSS */
+    /* CSS remains unchanged */
     @media (max-width: 768px) {
       .hexagon {
         width: 35px;
@@ -26,9 +25,7 @@
       cursor: grab;
       transition: transform 0.1s;
       touch-action: none;
-      /* Essential for touch gestures */
     }
-
 
     .hex-grid {
       position: absolute;
@@ -39,7 +36,6 @@
       position: absolute;
       width: 80px;
       height: 92.38px;
-      /* width * √3 */
       clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
       cursor: pointer;
       transition: filter 0.2s;
@@ -51,38 +47,15 @@
       text-shadow: 1px 1px 2px black;
     }
 
-    /* Hexagon type colors */
-    .batlagah {
-      background: #FF6B6B;
-    }
+    .batlagah { background: #FF6B6B; }
+    .biaban { background: #F4D03F; }
+    .dasht { background: #82E0AA; }
+    .jungle { background: #229954; }
+    .berke { background: #5DADE2; }
+    .darya { background: #3498DB; }
+    .koohestan { background: #7D3C98; }
 
-    .biaban {
-      background: #F4D03F;
-    }
-
-    .dasht {
-      background: #82E0AA;
-    }
-
-    .jungle {
-      background: #229954;
-    }
-
-    .berke {
-      background: #5DADE2;
-    }
-
-    .darya {
-      background: #3498DB;
-    }
-
-    .koohestan {
-      background: #7D3C98;
-    }
-
-    .hexagon:hover {
-      filter: brightness(1.2);
-    }
+    .hexagon:hover { filter: brightness(1.2); }
 
     .popup {
       position: fixed;
@@ -104,7 +77,6 @@
     }
   </style>
 </head>
-
 <body>
   <div id="map-container">
     <div class="hex-grid"></div>
@@ -120,16 +92,10 @@
   </div>
 
   <script>
-    // Add these variables at the top
-    let lastScale = 1;
-    let initialDistance = null;
-    let initialTranslate = { x: 0, y: 0 };
-
     const HEX_TYPES = ['batlagah', 'biaban', 'dasht', 'jungle', 'berke', 'darya', 'koohestan'];
     const ROWS = 26;
     const COLS = 23;
     let currentHex = null;
-    let scale = .5;
     let isDragging = false;
     let startX, startY, translateX = 0, translateY = 0;
 
@@ -189,11 +155,14 @@
       currentHex = null;
     }
 
-    // Drag and zoom handlers
+    // Drag handlers
     document.getElementById('map-container').addEventListener('mousedown', startDrag);
     document.addEventListener('mousemove', drag);
     document.addEventListener('mouseup', endDrag);
-    document.addEventListener('wheel', handleZoom, { passive: false });
+
+    document.getElementById('map-container').addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleTouchEnd);
 
     function startDrag(e) {
       isDragging = true;
@@ -204,6 +173,7 @@
 
     function drag(e) {
       if (isDragging) {
+        e.preventDefault();
         translateX = e.clientX - startX;
         translateY = e.clientY - startY;
         updateTransform();
@@ -215,97 +185,35 @@
       document.getElementById('map-container').style.cursor = 'grab';
     }
 
-    function handleZoom(e) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      scale *= delta;
-      updateTransform();
-    }
-
-    // Modify your existing updateTransform function
-    function updateTransform() {
-      const mapContainer = document.getElementById('map-container');
-      mapContainer.style.transform =
-        `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-
-      // Smooth scaling for mobile
-      mapContainer.style.transition = isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)';
-    }
-
-    document.getElementById('map-container').addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('touchmove', handleTouchMove);
-    document.addEventListener('touchend', handleTouchEnd);
-
     function handleTouchStart(e) {
       if (e.touches.length === 1) {
-        // Single touch - start dragging
         isDragging = true;
         startX = e.touches[0].clientX - translateX;
         startY = e.touches[0].clientY - translateY;
-      } else if (e.touches.length === 2) {
-        // Two touches - start pinch zoom
-        initialDistance = getTouchDistance(e.touches);
-        initialTranslate = { x: translateX, y: translateY };
       }
     }
 
     function handleTouchMove(e) {
-      e.preventDefault();
-
-      if (e.touches.length === 1 && isDragging) {
-        // Single touch drag
+      if (isDragging && e.touches.length === 1) {
+        e.preventDefault();
         translateX = e.touches[0].clientX - startX;
         translateY = e.touches[0].clientY - startY;
         updateTransform();
-      } else if (e.touches.length === 2) {
-        // Pinch zoom
-        const currentDistance = getTouchDistance(e.touches);
-        const center = getTouchCenter(e.touches);
-
-        if (initialDistance) {
-          const newScale = scale * (currentDistance / initialDistance);
-          scale = Math.min(Math.max(0.5, newScale), 4); // Limit scale between 0.5x and 4x
-
-          // Calculate offset to keep zoom centered
-          const deltaX = (center.x - initialTranslate.x) * (1 - newScale / scale);
-          const deltaY = (center.y - initialTranslate.y) * (1 - newScale / scale);
-
-          translateX -= deltaX;
-          translateY -= deltaY;
-
-          updateTransform();
-        }
       }
     }
 
-    function handleTouchEnd(e) {
-      if (e.touches.length === 0) {
-        isDragging = false;
-        initialDistance = null;
-      }
+    function handleTouchEnd() {
+      isDragging = false;
     }
 
-    // Helper functions
-    function getTouchCenter(touches) {
-      return {
-        x: (touches[0].clientX + touches[1].clientX) / 2,
-        y: (touches[0].clientY + touches[1].clientY) / 2
-      };
+    function updateTransform() {
+      document.getElementById('map-container').style.transform = 
+        `translate(${translateX}px, ${translateY}px)`;
     }
-
-    function getTouchDistance(touches) {
-      return Math.hypot(
-        touches[0].clientX - touches[1].clientX,
-        touches[0].clientY - touches[1].clientY
-      );
-    }
-
-  
 
     // Initialize the game
     generateHexGrid();
     updateTransform();
   </script>
 </body>
-
 </html>
