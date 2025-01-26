@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Hexagon Map Game</title>
+  <style>
+    /* Add these to your existing CSS */
+    @media (max-width: 768px) {
+      .hexagon {
+        width: 35px;
+        height: 40.47px;
+        font-size: 8px;
+      }
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #333;
+      font-family: Arial, sans-serif;
+    }
+
+    #map-container {
+      position: fixed;
+      cursor: grab;
+      transition: transform 0.1s;
+      touch-action: none;
+      /* Essential for touch gestures */
+    }
+
+
+    .hex-grid {
+      position: absolute;
+      transform-origin: top left;
+    }
+
+    .hexagon {
+      position: absolute;
+      width: 80px;
+      height: 92.38px;
+      /* width * √3 */
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      cursor: pointer;
+      transition: filter 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: white;
+      text-shadow: 1px 1px 2px black;
+    }
+
+    /* Hexagon type colors */
+    .batlagah {
+      background: #FF6B6B;
+    }
+
+    .biaban {
+      background: #F4D03F;
+    }
+
+    .dasht {
+      background: #82E0AA;
+    }
+
+    .jungle {
+      background: #229954;
+    }
+
+    .berke {
+      background: #5DADE2;
+    }
+
+    .darya {
+      background: #3498DB;
+    }
+
+    .koohestan {
+      background: #7D3C98;
+    }
+
+    .hexagon:hover {
+      filter: brightness(1.2);
+    }
+
+    .popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      display: none;
+    }
+
+    .popup button {
+      margin: 5px;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map-container">
+    <div class="hex-grid"></div>
+  </div>
+
+  <div class="popup" id="hexPopup">
+    <h3>Hexagon Info</h3>
+    <p>Type: <span id="hexType"></span></p>
+    <p>Resources: <span id="hexResources"></span></p>
+    <p>Distance: <span id="hexDistance"></span></p>
+    <button onclick="clearResources()">Clear Resources</button>
+    <button onclick="closePopup()">Close</button>
+  </div>
+
+  <script>
+    // Add these variables at the top
+    let lastScale = 1;
+    let initialDistance = null;
+    let initialTranslate = { x: 0, y: 0 };
+
+    const HEX_TYPES = ['batlagah', 'biaban', 'dasht', 'jungle', 'berke', 'darya', 'koohestan'];
+    const ROWS = 26;
+    const COLS = 23;
+    let currentHex = null;
+    let scale = .5;
+    let isDragging = false;
+    let startX, startY, translateX = 0, translateY = 0;
+
+    function generateHexGrid() {
+      const hexGrid = document.querySelector('.hex-grid');
+      const hexWidth = 45;
+      const hexHeight = 155;
+      const colSpacing = hexWidth * 1;
+      const rowSpacing = hexHeight;
+
+      for (let row = 0; row < 13; row++) {
+        for (let col = 0; col < 42; col++) {
+          const hex = document.createElement('div');
+          const hexType = HEX_TYPES[Math.floor(Math.random() * HEX_TYPES.length)];
+
+          hex.className = `hexagon ${hexType}`;
+          hex.title = `${hexType} (${col},${row})`;
+
+          // Position calculation
+          const x = col * colSpacing;
+          const y = row * rowSpacing + (col % 2) * (hexHeight / 2);
+
+          hex.style.left = `${x}px`;
+          hex.style.top = `${y}px`;
+
+          // Store data attributes
+          hex.dataset.type = hexType;
+          hex.dataset.resources = Math.floor(Math.random() * 5) + 1;
+          hex.dataset.distance = Math.floor(Math.random() * 10) + 1;
+          hex.textContent = hex.dataset.resources;
+
+          hex.addEventListener('click', (e) => showHexInfo(e.target));
+          hexGrid.appendChild(hex);
+        }
+      }
+    }
+
+    function showHexInfo(hex) {
+      currentHex = hex;
+      document.getElementById('hexType').textContent = hex.dataset.type;
+      document.getElementById('hexResources').textContent = hex.dataset.resources;
+      document.getElementById('hexDistance').textContent = hex.dataset.distance;
+      document.getElementById('hexPopup').style.display = 'block';
+    }
+
+    function clearResources() {
+      if (currentHex) {
+        currentHex.dataset.resources = 0;
+        currentHex.textContent = '0';
+        currentHex.style.filter = 'grayscale(0.8)';
+        closePopup();
+      }
+    }
+
+    function closePopup() {
+      document.getElementById('hexPopup').style.display = 'none';
+      currentHex = null;
+    }
+
+    // Drag and zoom handlers
+    document.getElementById('map-container').addEventListener('mousedown', startDrag);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', endDrag);
+    document.addEventListener('wheel', handleZoom, { passive: false });
+
+    function startDrag(e) {
+      isDragging = true;
+      startX = e.clientX - translateX;
+      startY = e.clientY - translateY;
+      document.getElementById('map-container').style.cursor = 'grabbing';
+    }
+
+    function drag(e) {
+      if (isDragging) {
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        updateTransform();
+      }
+    }
+
+    function endDrag() {
+      isDragging = false;
+      document.getElementById('map-container').style.cursor = 'grab';
+    }
+
+    function handleZoom(e) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      scale *= delta;
+      updateTransform();
+    }
+
+    function updateTransform() {
+      document.getElementById('map-container').style.transform =
+        `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    }
+
+    document.getElementById('map-container').addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleTouchEnd);
+
+    function handleTouchStart(e) {
+      if (e.touches.length === 1) {
+        // Single touch - start dragging
+        isDragging = true;
+        startX = e.touches[0].clientX - translateX;
+        startY = e.touches[0].clientY - translateY;
+      } else if (e.touches.length === 2) {
+        // Two touches - start pinch zoom
+        initialDistance = getTouchDistance(e.touches);
+        initialTranslate = { x: translateX, y: translateY };
+      }
+    }
+
+    function handleTouchMove(e) {
+      e.preventDefault();
+
+      if (e.touches.length === 1 && isDragging) {
+        // Single touch drag
+        translateX = e.touches[0].clientX - startX;
+        translateY = e.touches[0].clientY - startY;
+        updateTransform();
+      } else if (e.touches.length === 2) {
+        // Pinch zoom
+        const currentDistance = getTouchDistance(e.touches);
+        const center = getTouchCenter(e.touches);
+
+        if (initialDistance) {
+          const newScale = scale * (currentDistance / initialDistance);
+          scale = Math.min(Math.max(0.5, newScale), 4); // Limit scale between 0.5x and 4x
+
+          // Calculate offset to keep zoom centered
+          const deltaX = (center.x - initialTranslate.x) * (1 - newScale / scale);
+          const deltaY = (center.y - initialTranslate.y) * (1 - newScale / scale);
+
+          translateX -= deltaX;
+          translateY -= deltaY;
+
+          updateTransform();
+        }
+      }
+    }
+
+    function handleTouchEnd(e) {
+      if (e.touches.length === 0) {
+        isDragging = false;
+        initialDistance = null;
+      }
+    }
+
+    // Helper functions
+    function getTouchCenter(touches) {
+      return {
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2
+      };
+    }
+
+    function getTouchDistance(touches) {
+      return Math.hypot(
+        touches[0].clientX - touches[1].clientX,
+        touches[0].clientY - touches[1].clientY
+      );
+    }
+
+    // Modify your existing updateTransform function
+    function updateTransform() {
+      const mapContainer = document.getElementById('map-container');
+      mapContainer.style.transform =
+        `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+
+      // Smooth scaling for mobile
+      mapContainer.style.transition = isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)';
+    }
+
+    // Initialize the game
+    generateHexGrid();
+    updateTransform();
+  </script>
+</body>
+
+</html>
