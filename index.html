@@ -4,7 +4,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Hexagon Map Game</title>
   <style>
-    /* CSS remains unchanged */
+    /* Overlay for popup closing */
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      z-index: 999;
+      display: none;
+    }
+
+    /* Responsive hexagons */
     @media (max-width: 768px) {
       .hexagon {
         width: 35px;
@@ -18,13 +30,15 @@
       overflow: hidden;
       background: #333;
       font-family: Arial, sans-serif;
+      touch-action: none;
     }
 
     #map-container {
       position: fixed;
       cursor: grab;
-      transition: transform 0.1s;
+      transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
       touch-action: none;
+      will-change: transform;
     }
 
     .hex-grid {
@@ -47,6 +61,7 @@
       text-shadow: 1px 1px 2px black;
     }
 
+    /* Hexagon type colors */
     .batlagah { background: #FF6B6B; }
     .biaban { background: #F4D03F; }
     .dasht { background: #82E0AA; }
@@ -82,6 +97,10 @@
     <div class="hex-grid"></div>
   </div>
 
+  <!-- Overlay for closing popup -->
+  <div class="overlay" id="overlay"></div>
+
+  <!-- Popup dialog -->
   <div class="popup" id="hexPopup">
     <h3>Hexagon Info</h3>
     <p>Type: <span id="hexType"></span></p>
@@ -114,14 +133,12 @@
           hex.className = `hexagon ${hexType}`;
           hex.title = `${hexType} (${col},${row})`;
 
-          // Position calculation
           const x = col * colSpacing;
           const y = row * rowSpacing + (col % 2) * (hexHeight / 2);
 
           hex.style.left = `${x}px`;
           hex.style.top = `${y}px`;
 
-          // Store data attributes
           hex.dataset.type = hexType;
           hex.dataset.resources = Math.floor(Math.random() * 5) + 1;
           hex.dataset.distance = Math.floor(Math.random() * 10) + 1;
@@ -139,6 +156,7 @@
       document.getElementById('hexResources').textContent = hex.dataset.resources;
       document.getElementById('hexDistance').textContent = hex.dataset.distance;
       document.getElementById('hexPopup').style.display = 'block';
+      document.getElementById('overlay').style.display = 'block';
     }
 
     function clearResources() {
@@ -152,16 +170,22 @@
 
     function closePopup() {
       document.getElementById('hexPopup').style.display = 'none';
+      document.getElementById('overlay').style.display = 'none';
       currentHex = null;
     }
 
-    // Drag handlers
+    // Overlay click/touch handlers
+    document.getElementById('overlay').addEventListener('click', closePopup);
+    document.getElementById('overlay').addEventListener('touchend', closePopup);
+
+    // Mouse drag handlers
     document.getElementById('map-container').addEventListener('mousedown', startDrag);
     document.addEventListener('mousemove', drag);
     document.addEventListener('mouseup', endDrag);
 
+    // Touch drag handlers
     document.getElementById('map-container').addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd);
 
     function startDrag(e) {
@@ -190,20 +214,25 @@
         isDragging = true;
         startX = e.touches[0].clientX - translateX;
         startY = e.touches[0].clientY - translateY;
+        document.getElementById('map-container').style.transition = 'none';
       }
     }
 
     function handleTouchMove(e) {
       if (isDragging && e.touches.length === 1) {
         e.preventDefault();
-        translateX = e.touches[0].clientX - startX;
-        translateY = e.touches[0].clientY - startY;
-        updateTransform();
+        requestAnimationFrame(() => {
+          translateX = e.touches[0].clientX - startX;
+          translateY = e.touches[0].clientY - startY;
+          updateTransform();
+        });
       }
     }
 
     function handleTouchEnd() {
       isDragging = false;
+      document.getElementById('map-container').style.transition = 
+        'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)';
     }
 
     function updateTransform() {
