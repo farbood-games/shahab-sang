@@ -222,9 +222,14 @@
       updateTransform();
     }
 
+    // Modify your existing updateTransform function
     function updateTransform() {
-      document.getElementById('map-container').style.transform =
+      const mapContainer = document.getElementById('map-container');
+      mapContainer.style.transform =
         `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+
+      // Smooth scaling for mobile
+      mapContainer.style.transition = isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)';
     }
 
     document.getElementById('map-container').addEventListener('touchstart', handleTouchStart);
@@ -295,15 +300,7 @@
       );
     }
 
-    // Modify your existing updateTransform function
-    function updateTransform() {
-      const mapContainer = document.getElementById('map-container');
-      mapContainer.style.transform =
-        `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-
-      // Smooth scaling for mobile
-      mapContainer.style.transition = isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)';
-    }
+  
 
     // Initialize the game
     generateHexGrid();
